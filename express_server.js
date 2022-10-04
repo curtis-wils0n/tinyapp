@@ -12,11 +12,7 @@ const urlDatabase = {
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
-  res.send('Hello!');
-});
-
-app.get('/hello', (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n");
+  res.redirect(`/urls`);
 });
 
 app.get('/urls', (req, res) => {
