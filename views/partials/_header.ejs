@@ -18,8 +18,8 @@
         <a class="nav-item nav-link" href="/urls/new">Create New URL</a>
       </div> 
     </div>
-    <% if (username !== undefined) { %>
-      <p class="navbar-nav nav-item nav-link" style="float: right; color: rgba(255, 255, 255, 0.5);">Logged in as: <%= username %></p>
+    <% if (user !== undefined) { %>
+      <p class="navbar-nav nav-item nav-link" style="float: right; color: rgba(255, 255, 255, 0.5);">Logged in as: <%= user.email %></p>
       <form action="/logout" method="POST" style="float: right">
         <button type="submit" class="btn btn-outline-dark" style="float: right; margin-left: 10px">Logout</button>
       </form>
