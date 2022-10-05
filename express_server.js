@@ -80,6 +80,14 @@ app.get('/register', (req, res) => {
   res.render('urls_register', templateVars);
 });
 
+app.get('/login', (req, res) => {
+  const lookup = req.cookies["user_id"];
+  const templateVars = {
+    user: users[lookup],
+  };
+  res.render('urls_login', templateVars);
+});
+
 app.post('/urls', (req, res) => {
   const newID = randString();
   urlDatabase[newID] = req.body.longURL;
@@ -94,6 +102,16 @@ app.post('/urls/:id/delete', (req, res) => {
 app.post('/urls/:id/update', (req, res) => {
   urlDatabase[req.params.id] = req.body.newURL;
   res.redirect('/urls');
+});
+
+app.post('/login', (req, res) => {
+  const user = getUserByEmail(req.body.email);
+  if (user === null || user.password !== req.body.password) {
+    res.sendStatus(403);
+  } else {
+    res.cookie("user_id", user.id);
+    res.redirect('/urls');
+  }
 });
 
 app.post('/logout', (req, res) => {
