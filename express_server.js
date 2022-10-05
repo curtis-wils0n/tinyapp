@@ -14,12 +14,12 @@ const users = {
   userRandomID: {
     id: "userRandomID",
     email: "user@example.com",
-    password: "purple-monkey-dinosaur"
+    password: "purple-monkey-dinosaur",
   },
   user2RandomID: {
     id: "user2RandomID",
     email: "user2@example.com",
-    password: "dishwasher-funk"
+    password: "dishwasher-funk",
   },
 };
 
@@ -50,6 +50,9 @@ app.get('/urls', (req, res) => {
 });
 
 app.get('/urls/new', (req, res) => {
+  if (req.cookies.user_id === undefined) {
+    return res.redirect('/login');
+  }
   const lookup = req.cookies["user_id"];
   const templateVars = {
     user: users[lookup],
@@ -69,10 +72,16 @@ app.get('/urls/:id', (req, res) => {
 
 app.get('/u/:id', (req, res) => {
   const longURL = urlDatabase[req.params.id];
+  if (longURL === undefined) {
+    return res.send(`${req.params.id} is not in the database...`);
+  }
   res.redirect(longURL);
 });
 
 app.get('/register', (req, res) => {
+  if (req.cookies.user_id !== undefined) {
+    return res.redirect('/urls');
+  }
   const lookup = req.cookies["user_id"];
   const templateVars = {
     user: users[lookup],
@@ -81,6 +90,9 @@ app.get('/register', (req, res) => {
 });
 
 app.get('/login', (req, res) => {
+  if (req.cookies.user_id !== undefined) {
+    return res.redirect('/urls');
+  }
   const lookup = req.cookies["user_id"];
   const templateVars = {
     user: users[lookup],
@@ -89,6 +101,9 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/urls', (req, res) => {
+  if (req.cookies.user_id === undefined) {
+    return res.send('You cannot shorten URLs unless you are logged in.\n')
+  }
   const newID = randString();
   urlDatabase[newID] = req.body.longURL;
   res.redirect(`/urls/${newID}`);
@@ -107,11 +122,10 @@ app.post('/urls/:id/update', (req, res) => {
 app.post('/login', (req, res) => {
   const user = getUserByEmail(req.body.email);
   if (user === null || user.password !== req.body.password) {
-    res.sendStatus(403);
-  } else {
-    res.cookie("user_id", user.id);
-    res.redirect('/urls');
+    return res.sendStatus(403).send('please include email and password');
   }
+  res.cookie("user_id", user.id);
+  res.redirect('/urls');
 });
 
 app.post('/logout', (req, res) => {
