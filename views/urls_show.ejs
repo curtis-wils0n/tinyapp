@@ -23,7 +23,7 @@
       </div>
       <div class="card-footer">
         <h5 class="card-title">Edit</h5>
-        <form action="/urls/<%= id %>" method="POST">
+        <form action="/urls/<%= id %>?_method=PUT" method="POST">
           <label for="newURL">New URL:</label>
           <input type="text" id="newURL" name="newURL"></input>
           <input type="submit" value="Submit" class="btn btn-primary">

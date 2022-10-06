@@ -26,6 +26,7 @@ TinyApp's URL display for users
 - bcryptjs
 - cookie-session
 - serve-favicon
+- method-override
 
 ## To Run Project:
 

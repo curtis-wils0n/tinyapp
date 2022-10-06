@@ -2,6 +2,7 @@
 const express = require('express');
 const { getUserByEmail, urlsForUser, randString } = require('./helpers');
 const cookieSession = require('cookie-session');
+const methodOverride = require('method-override');
 const favicon = require('serve-favicon');
 const bcrypt = require('bcryptjs');
 const app = express();
@@ -21,6 +22,7 @@ app.use(cookieSession({
 }));
 app.use("/public/images", express.static("public/images"));
 app.use(favicon(__dirname + '/public/images/favicon.ico'));
+app.use(methodOverride('_method'));
 
 //- Main routes -//
 app.get('/', (req, res) => {
@@ -33,7 +35,7 @@ app.get('/', (req, res) => {
   };
   res.render('urls_landing', templateVars);
 });
-
+//- Routes for /urls -//
 app.get('/urls', (req, res) => {
   if (req.session.user_id === undefined) {
     return res.status(401).send('You must be logged in to see your shortened URLs');
@@ -50,6 +52,18 @@ app.get('/urls', (req, res) => {
     user: users[lookup],
   };
   res.render('urls_index', templateVars);
+});
+
+app.post('/urls', (req, res) => {
+  if (req.session.user_id === undefined) {
+    return res.status(401).send('You cannot shorten URLs unless you are logged in.\n');
+  }
+  const newID = randString();
+  urlDatabase[newID] = {
+    longURL: req.body.longURL,
+    userID: req.session.user_id,
+  };
+  res.redirect(`/urls/${newID}`);
 });
 
 app.get('/urls/new', (req, res) => {
@@ -83,13 +97,35 @@ app.get('/urls/:id', (req, res) => {
   res.render('urls_show', templateVars);
 });
 
+app.put('/urls/:id', (req, res) => {
+  const allowed = urlsForUser(req.session.user_id, urlDatabase);
+  if (req.session.user_id === undefined) {
+    return res.status(401).send('You are not logged in.\n');
+  } else if (!allowed.includes(req.params.id)) {
+    return res.status(403).send('You are not permitted to modify this URL.\n');
+  }
+  urlDatabase[req.params.id].longURL = req.body.newURL;
+  res.redirect('/urls');
+});
+
+app.delete('/urls/:id', (req, res) => {
+  const allowed = urlsForUser(req.session.user_id, urlDatabase);
+  if (req.session.user_id === undefined) {
+    return res.status(401).send('You are not logged in.\n');
+  } else if (!allowed.includes(req.params.id)) {
+    return res.status(403).send('You are not permitted to modify this URL.\n');
+  }
+  delete urlDatabase[req.params.id];
+  res.redirect('/urls');
+});
+//- Route for following a shortened url -//
 app.get('/u/:id', (req, res) => {
   if (urlDatabase[req.params.id] === undefined) {
     return res.status(400).send(`${req.params.id} is not in the database...`);
   }
   res.redirect(urlDatabase[req.params.id].longURL);
 });
-
+//- Routes for logging in and registering -//
 app.get('/login', (req, res) => {
   if (req.session.user_id !== undefined) {
     return res.redirect('/urls');
@@ -101,6 +137,15 @@ app.get('/login', (req, res) => {
   res.render('urls_login', templateVars);
 });
 
+app.post('/login', (req, res) => {
+  const user = getUserByEmail(req.body.email, users);
+  if (user === undefined || !bcrypt.compareSync(req.body.password, user.password)) {
+    return res.status(403).send('Incorrect email or password.\n');
+  }
+  req.session.user_id = user.id;
+  res.redirect('/urls');
+});
+
 app.get('/register', (req, res) => {
   if (req.session.user_id !== undefined) {
     return res.redirect('/urls');
@@ -110,49 +155,6 @@ app.get('/register', (req, res) => {
     user: users[lookup],
   };
   res.render('urls_register', templateVars);
-});
-
-app.post('/urls', (req, res) => {
-  if (req.session.user_id === undefined) {
-    return res.status(401).send('You cannot shorten URLs unless you are logged in.\n');
-  }
-  const newID = randString();
-  urlDatabase[newID] = {
-    longURL: req.body.longURL,
-    userID: req.session.user_id,
-  };
-  res.redirect(`/urls/${newID}`);
-});
-
-app.post('/urls/:id', (req, res) => {
-  const allowed = urlsForUser(req.session.user_id, urlDatabase);
-  if (req.session.user_id === undefined) {
-    return res.status(401).send('You are not logged in.\n');
-  } else if (!allowed.includes(req.params.id)) {
-    return res.status(403).send('You are not permitted to modify this URL.\n');
-  }
-  urlDatabase[req.params.id].longURL = req.body.newURL;
-  res.redirect('/urls');
-});
-
-app.post('/urls/:id/delete', (req, res) => {
-  const allowed = urlsForUser(req.session.user_id, urlDatabase);
-  if (req.session.user_id === undefined) {
-    return res.status(401).send('You are not logged in.\n');
-  } else if (!allowed.includes(req.params.id)) {
-    return res.status(403).send('You are not permitted to modify this URL.\n');
-  }
-  delete urlDatabase[req.params.id];
-  res.redirect('/urls');
-});
-
-app.post('/login', (req, res) => {
-  const user = getUserByEmail(req.body.email, users);
-  if (user === undefined || !bcrypt.compareSync(req.body.password, user.password)) {
-    return res.status(403).send('Incorrect email or password.\n');
-  }
-  req.session.user_id = user.id;
-  res.redirect('/urls');
 });
 
 app.post('/register', (req, res) => {
@@ -170,7 +172,7 @@ app.post('/register', (req, res) => {
   req.session.user_id = userID;
   res.redirect('/urls');
 });
-
+//- Logout Route -//
 app.post('/logout', (req, res) => {
   req.session = null;
   res.redirect('/');
