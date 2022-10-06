@@ -1,5 +1,5 @@
 const express = require('express');
-const cookieParser = require('cookie-parser');
+const cookieSession = require('cookie-session');
 const favicon = require('serve-favicon');
 const bcrypt = require('bcryptjs');
 const app = express();
@@ -28,7 +28,10 @@ const users = {};
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['key1'],
+}));
 app.use("/public/images", express.static("public/images"));
 app.use(favicon(__dirname + '/public/images/favicon.ico'));
 // Returns the URLs that have the given id value in its 'userID' key
@@ -50,23 +53,36 @@ const getUserByEmail = function(email) {
   }
   return null;
 };
+// Returns string for user ID
+const randString = function() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    if (Math.random() > 0.5) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length)).toLowerCase();
+    } else {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+  }
+  return result;
+};
 // Main landing page, gives user option to login or register
 app.get('/', (req, res) => {
-  if (req.cookies.user_id !== undefined) {
+  if (req.session.user_id !== undefined) {
     return res.redirect('/urls');
   }
   const templateVars = {
-    user: users[req.cookies["user_id"]],
+    user: users[req.session.user_id],
     urls: urlDatabase,
   };
   res.render('urls_landing', templateVars);
 });
 // Displays user's list of shortened urls
 app.get('/urls', (req, res) => {
-  if (req.cookies.user_id === undefined) {
+  if (req.session.user_id === undefined) {
     return res.redirect('/');
   }
-  const lookup = req.cookies["user_id"];
+  const lookup = req.session.user_id;
   let validDatabase = {};
   for (const link of urlsForUser(lookup)) {
     if (urlDatabase[link]) {
@@ -81,10 +97,10 @@ app.get('/urls', (req, res) => {
 });
 // User can create new shortened URL
 app.get('/urls/new', (req, res) => {
-  if (req.cookies["user_id"] === undefined) {
+  if (req.session.user_id === undefined) {
     return res.redirect('/');
   }
-  const lookup = req.cookies["user_id"];
+  const lookup = req.session.user_id;
   const templateVars = {
     user: users[lookup],
   };
@@ -92,17 +108,17 @@ app.get('/urls/new', (req, res) => {
 });
 
 app.get('/urls/:id', (req, res) => {
-  if (req.cookies["user_id"] === undefined) {
+  if (req.session.user_id === undefined) {
     return res.status(401).send('You are not logged in.');
   }
   if (!Object.keys(urlDatabase).includes(req.params.id)) {
     return res.status(400).send(`ID '${req.params.id}' does not exists.\n`);
   }
-  const allowedURLs = urlsForUser(req.cookies["user_id"]);
+  const allowedURLs = urlsForUser(req.session.user_id);
   if (!allowedURLs.includes(req.params.id)) {
     return res.status(403).send('You do not have access to that shortened URL');
   }
-  const lookup = req.cookies["user_id"];
+  const lookup = req.session.user_id;
   const templateVars = {
     id: req.params.id,
     longURL: urlDatabase[req.params.id].longURL,
@@ -120,10 +136,10 @@ app.get('/u/:id', (req, res) => {
 });
 
 app.get('/register', (req, res) => {
-  if (req.cookies.user_id !== undefined) {
+  if (req.session.user_id !== undefined) {
     return res.redirect('/urls');
   }
-  const lookup = req.cookies["user_id"];
+  const lookup = req.session.user_id;
   const templateVars = {
     user: users[lookup],
   };
@@ -131,10 +147,10 @@ app.get('/register', (req, res) => {
 });
 
 app.get('/login', (req, res) => {
-  if (req.cookies.user_id !== undefined) {
+  if (req.session.user_id !== undefined) {
     return res.redirect('/urls');
   }
-  const lookup = req.cookies["user_id"];
+  const lookup = req.session.user_id;
   const templateVars = {
     user: users[lookup],
   };
@@ -142,20 +158,20 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/urls', (req, res) => {
-  if (req.cookies["user_id"] === undefined) {
+  if (req.session.user_id === undefined) {
     return res.status(401).send('You cannot shorten URLs unless you are logged in.\n');
   }
   const newID = randString();
   urlDatabase[newID] = {
     longURL: req.body.longURL,
-    userID: req.cookies["user_id"],
+    userID: req.session.user_id,
   };
   res.redirect(`/urls/${newID}`);
 });
 
 app.post('/urls/:id/delete', (req, res) => {
-  const allowed = urlsForUser(req.cookies["user_id"]);
-  if (req.cookies["user_id"] === undefined ) {
+  const allowed = urlsForUser(req.session.user_id);
+  if (req.session.user_id === undefined ) {
     return res.status(401).send('You are not logged in.\n')
   } else if (!Object.keys(urlDatabase).includes(req.params.id)) {
     return res.status(400).send(`id ${req.params.id} does not exist.\n`)
@@ -167,8 +183,8 @@ app.post('/urls/:id/delete', (req, res) => {
 });
 
 app.post('/urls/:id/update', (req, res) => {
-  const allowed = urlsForUser(req.cookies["user_id"]);
-  if (req.cookies["user_id"] === undefined) {
+  const allowed = urlsForUser(req.session.user_id);
+  if (req.session.user_id === undefined) {
     return res.status(401).send('You are not logged in.\n');
   } else if (!Object.keys(urlDatabase).includes(req.params.id)) {
     return res.status(400).send(`id ${req.params.id} does not exist.\n`)
@@ -191,8 +207,8 @@ app.post('/register', (req, res) => {
   users[userID].id = userID;
   users[userID].email = req.body.email;
   users[userID].password = hashedPassword;
-  console.log(users);
-  res.cookie("user_id", userID);
+  req.session.user_id = userID;
+  // res.cookie("user_id", userID);
   res.redirect('/urls');
 });
 
@@ -201,31 +217,19 @@ app.post('/login', (req, res) => {
   if (user === null || !bcrypt.compareSync(req.body.password, user.password)) {
     return res.status(403).send('Incorrect email or password.\n');
   }
-  res.cookie("user_id", user.id);
+  req.session.user_id = user.id;
+  // res.cookie("user_id", user.id);
   res.redirect('/urls');
 });
 
 app.post('/logout', (req, res) => {
-  if (req.cookies["user_id"] === undefined) {
+  if (req.session.user_id === undefined) {
     return res.status(401).send(`Cannot logout if you're not logged in...\n`);
   }
-  res.clearCookie('user_id');
+  req.session = null;
   res.redirect('/urls');
 });
 
 app.listen(PORT, () => {
   
 });
-
-const randString = function() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let result = '';
-  for (let i = 0; i < 6; i++) {
-    if (Math.random() > 0.5) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length)).toLowerCase();
-    } else {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-  }
-  return result;
-};
