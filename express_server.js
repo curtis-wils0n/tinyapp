@@ -1,5 +1,6 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
+const favicon = require('serve-favicon');
 const app = express();
 const PORT = 8080;
 
@@ -23,6 +24,8 @@ const users = {
 // Middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use("/public/images", express.static("public/images"));
+app.use(favicon(__dirname + '/public/images/favicon.ico'));
 
 const urlsForUser = function(id) {
   let result = [];

@@ -15,6 +15,7 @@
       crossorigin="anonymous"
     />
     <title>Your URLS - TinyApp</title>
+    <link rel="icon" href="/public/images/favicon.ico" type="image/x-icon">
   </head>
   <body>
     <%- include('partials/_header') %>
@@ -32,7 +33,7 @@
         <tbody>
           <% for (let id in urls) { %>
             <tr>
-              <td><%= id %></td>
+              <td><a href="/u/<%= id %>" target="_blank"><%= id %></a></td>
               <td><%= urls[id].longURL %></td>
               <td>
                 <form action="/urls/<%= id %>/delete" method="POST">
