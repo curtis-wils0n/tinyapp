@@ -50,7 +50,7 @@ app.get('/urls', (req, res) => {
   };
   res.render('urls_index', templateVars);
 });
-// User can create new shortened URL
+
 app.get('/urls/new', (req, res) => {
   if (req.session.user_id === undefined) {
     return res.redirect('/login');
@@ -175,4 +175,6 @@ app.post('/logout', (req, res) => {
   res.redirect('/');
 });
 
-app.listen(PORT, () => {});
+app.listen(PORT, () => {
+  console.log(`Listening at port ${PORT}`);
+});
