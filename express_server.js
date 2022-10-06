@@ -1,3 +1,4 @@
+//- Required packages -//
 const express = require('express');
 const { getUserByEmail, urlsForUser, randString } = require('./helpers');
 const cookieSession = require('cookie-session');
@@ -8,7 +9,7 @@ const PORT = 8080;
 
 app.set('view engine', 'ejs');
 
-// Global objects //
+//- Global objects -//
 const urlDatabase = {};
 const users = {};
 
@@ -21,7 +22,7 @@ app.use(cookieSession({
 app.use("/public/images", express.static("public/images"));
 app.use(favicon(__dirname + '/public/images/favicon.ico'));
 
-// Main landing page, gives user option to login or register
+//- Main routes -//
 app.get('/', (req, res) => {
   if (req.session.user_id !== undefined) {
     return res.redirect('/urls');
@@ -136,8 +137,8 @@ app.post('/urls/:id', (req, res) => {
 
 app.post('/urls/:id/delete', (req, res) => {
   const allowed = urlsForUser(req.session.user_id, urlDatabase);
-  if (req.session.user_id === undefined ) {
-    return res.status(401).send('You are not logged in.\n')
+  if (req.session.user_id === undefined) {
+    return res.status(401).send('You are not logged in.\n');
   } else if (!allowed.includes(req.params.id)) {
     return res.status(403).send('You are not permitted to modify this URL.\n');
   }
