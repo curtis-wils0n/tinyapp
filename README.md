@@ -8,6 +8,15 @@ Created by [Curtis Wilson](https://github.com/curtis-wils0n) as a part of Lighth
 
 TinyApp is a full-stack Node & ExpressJS webapp that allows users to shorten long URLs into a readable length (see [bit.ly](https://bitly.com/), [tinyurl](https://tinyurl.com/app), etc.).
 
+## Dependencies
+
+- Node.js
+- Express
+- EJS
+- bcryptjs
+- cookie-session
+- serve-favicon
+
 ## To Run Project:
 
 Clone repository:
