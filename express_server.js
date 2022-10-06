@@ -5,7 +5,14 @@ const app = express();
 const PORT = 8080;
 
 app.set('view engine', 'ejs');
-
+/**
+ * urlDatabase = {
+ *   shortenedURL: {
+ *     longURL: http://www.example.com,
+ *     userID: userID,
+ *   },
+ * };
+ */
 const urlDatabase = {};
 
 const users = {
@@ -26,7 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/public/images", express.static("public/images"));
 app.use(favicon(__dirname + '/public/images/favicon.ico'));
-
+// Returns the URLs that have the given id value in its 'userID' key
 const urlsForUser = function(id) {
   let result = [];
   for (let link of Object.keys(urlDatabase)) {
@@ -36,7 +43,7 @@ const urlsForUser = function(id) {
   }
   return result;
 };
-
+// Returns a user object based on matching email
 const getUserByEmail = function(email) {
   for (let individual of Object.keys(users)) {
     if (users[individual].email === email) {
@@ -45,7 +52,7 @@ const getUserByEmail = function(email) {
   }
   return null;
 };
-
+// Main landing page, gives user option to login or register
 app.get('/', (req, res) => {
   if (req.cookies.user_id !== undefined) {
     return res.redirect('/urls');
@@ -56,7 +63,7 @@ app.get('/', (req, res) => {
   };
   res.render('urls_landing', templateVars);
 });
-
+// Displays user's list of shortened urls
 app.get('/urls', (req, res) => {
   if (req.cookies.user_id === undefined) {
     return res.redirect('/');
@@ -74,9 +81,9 @@ app.get('/urls', (req, res) => {
   };
   res.render('urls_index', templateVars);
 });
-
+// User can create new shortened URL
 app.get('/urls/new', (req, res) => {
-  if (req.cookies.user_id === undefined) {
+  if (req.cookies["user_id"] === undefined) {
     return res.redirect('/');
   }
   const lookup = req.cookies["user_id"];
@@ -87,12 +94,15 @@ app.get('/urls/new', (req, res) => {
 });
 
 app.get('/urls/:id', (req, res) => {
-  if (req.cookies.user_id === undefined) {
-    return res.send('You are not logged in.');
+  if (req.cookies["user_id"] === undefined) {
+    return res.status(401).send('You are not logged in.');
+  }
+  if (!Object.keys(urlDatabase).includes(req.params.id)) {
+    return res.status(400).send(`ID '${req.params.id}' does not exists.\n`);
   }
   const allowedURLs = urlsForUser(req.cookies["user_id"]);
   if (!allowedURLs.includes(req.params.id)) {
-    return res.send('You do not have access to that shortened URL');
+    return res.status(403).send('You do not have access to that shortened URL');
   }
   const lookup = req.cookies["user_id"];
   const templateVars = {
@@ -106,7 +116,7 @@ app.get('/urls/:id', (req, res) => {
 app.get('/u/:id', (req, res) => {
   const longURL = urlDatabase[req.params.id].longURL;
   if (longURL === undefined) {
-    return res.send(`${req.params.id} is not in the database...`);
+    return res.status(400).send(`${req.params.id} is not in the database...`);
   }
   res.redirect(longURL);
 });
@@ -135,7 +145,7 @@ app.get('/login', (req, res) => {
 
 app.post('/urls', (req, res) => {
   if (req.cookies["user_id"] === undefined) {
-    return res.send('You cannot shorten URLs unless you are logged in.\n');
+    return res.status(401).send('You cannot shorten URLs unless you are logged in.\n');
   }
   const newID = randString();
   urlDatabase[newID] = {
@@ -147,8 +157,12 @@ app.post('/urls', (req, res) => {
 
 app.post('/urls/:id/delete', (req, res) => {
   const allowed = urlsForUser(req.cookies["user_id"]);
-  if (req.cookies["user_id"] === undefined || !allowed.includes(req.params.id)) {
-    return res.send('You are not permitted to modify this URL.');
+  if (req.cookies["user_id"] === undefined ) {
+    return res.status(401).send('You are not logged in.\n')
+  } else if (!Object.keys(urlDatabase).includes(req.params.id)) {
+    return res.status(400).send(`id ${req.params.id} does not exist.\n`)
+  } else if (!allowed.includes(req.params.id)) {
+    return res.status(403).send('You are not permitted to modify this URL.\n');
   }
   delete urlDatabase[req.params.id];
   res.redirect('/urls');
@@ -156,8 +170,12 @@ app.post('/urls/:id/delete', (req, res) => {
 
 app.post('/urls/:id/update', (req, res) => {
   const allowed = urlsForUser(req.cookies["user_id"]);
-  if (req.cookies["user_id"] === undefined || !allowed.includes(req.params.id)) {
-    return res.send('You are not permitted to modify this URL.');
+  if (req.cookies["user_id"] === undefined) {
+    return res.status(401).send('You are not logged in.\n');
+  } else if (!Object.keys(urlDatabase).includes(req.params.id)) {
+    return res.status(400).send(`id ${req.params.id} does not exist.\n`)
+  } else if (!allowed.includes(req.params.id)) {
+    return res.status(403).send('You are not permitted to modify this URL.\n');
   }
   urlDatabase[req.params.id].longURL = req.body.newURL;
   res.redirect('/urls');
@@ -166,29 +184,31 @@ app.post('/urls/:id/update', (req, res) => {
 app.post('/login', (req, res) => {
   const user = getUserByEmail(req.body.email);
   if (user === null || user.password !== req.body.password) {
-    return res.sendStatus(403).send('please include email and password');
+    return res.status(403).send('Incorrect email or password.\n');
   }
   res.cookie("user_id", user.id);
   res.redirect('/urls');
 });
 
 app.post('/logout', (req, res) => {
+  if (req.cookies["user_id"] === undefined) {
+    return res.status(401).send(`Cannot logout if you're not logged in...\n`);
+  }
   res.clearCookie('user_id');
   res.redirect('/urls');
 });
 
 app.post('/register', (req, res) => {
   if (req.body.email === '' || req.body.password === '' || getUserByEmail(req.body.email) !== null) {
-    res.sendStatus(400);
-  } else {
-    const userID = randString();
-    users[userID] = {};
-    users[userID].id = userID;
-    users[userID].email = req.body.email;
-    users[userID].password = req.body.password;
-    res.cookie("user_id", userID);
-    res.redirect('/urls');
+    return res.status(400).send('Values cannot be blank.\n');
   }
+  const userID = randString();
+  users[userID] = {};
+  users[userID].id = userID;
+  users[userID].email = req.body.email;
+  users[userID].password = req.body.password;
+  res.cookie("user_id", userID);
+  res.redirect('/urls');
 });
 
 app.listen(PORT, () => {
