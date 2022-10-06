@@ -14,40 +14,18 @@
       integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS"
       crossorigin="anonymous"
     />
-    <title>Your URLS - TinyApp</title>
+
+    <title>Welcome! - TinyApp</title>
   </head>
   <body>
     <%- include('partials/_header') %>
     <main style="margin: 1em;">
-      <h3>My URLs</h3>
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">Short URL ID</th>
-            <th scope="col">Long URL</th>
-            <th scope="col">Delete</th>
-            <th scope="col">Edit</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% for (let id in urls) { %>
-            <tr>
-              <td><%= id %></td>
-              <td><%= urls[id].longURL %></td>
-              <td>
-                <form action="/urls/<%= id %>/delete" method="POST">
-                  <button type="submit" class="btn btn-danger">Delete</button>
-                </form>
-              </td>
-              <td>
-                <form action="/urls/<%= id %>">
-                  <input type="submit" value="Edit" class="btn btn-primary">
-                </form>
-              </td>
-            </tr>
-          <% } %>
-        </tbody>
-      </table>
+      <h3 style="text-align: left;">Welcome to TinyApp</h3>
+      <p>This url-shortener requires you to log in before using it.</p>
+      <div class="list-group">
+        <a href="/register" class="list-group-item list-group-item-action">Register to create a new account</a>
+        <a href="/login" class="list-group-item list-group-item-action">Log in to an already-existing account</a>
+      </div>
     </main>
     <!-- Bootstrap JS -->
     <script

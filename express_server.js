@@ -5,10 +5,7 @@ const PORT = 8080;
 
 app.set('view engine', 'ejs');
 
-const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com" 
-};
+const urlDatabase = {};
 
 const users = {
   userRandomID: {
@@ -27,6 +24,16 @@ const users = {
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+const urlsForUser = function(id) {
+  let result = [];
+  for (let link of Object.keys(urlDatabase)) {
+    if (urlDatabase[link].userID === id) {
+      result.push(link);
+    }
+  }
+  return result;
+};
+
 const getUserByEmail = function(email) {
   for (let individual of Object.keys(users)) {
     if (users[individual].email === email) {
@@ -37,13 +44,29 @@ const getUserByEmail = function(email) {
 };
 
 app.get('/', (req, res) => {
-  res.redirect(`/urls`);
+  if (req.cookies.user_id !== undefined) {
+    return res.redirect('/urls');
+  }
+  const templateVars = {
+    user: users[req.cookies["user_id"]],
+    urls: urlDatabase,
+  };
+  res.render('urls_landing', templateVars);
 });
 
 app.get('/urls', (req, res) => {
+  if (req.cookies.user_id === undefined) {
+    return res.redirect('/');
+  }
   const lookup = req.cookies["user_id"];
+  let validDatabase = {};
+  for (const link of urlsForUser(lookup)) {
+    if (urlDatabase[link]) {
+      validDatabase[link] = urlDatabase[link];
+    }
+  }
   const templateVars = {
-    urls: urlDatabase,
+    urls: validDatabase,
     user: users[lookup],
   };
   res.render('urls_index', templateVars);
@@ -51,7 +74,7 @@ app.get('/urls', (req, res) => {
 
 app.get('/urls/new', (req, res) => {
   if (req.cookies.user_id === undefined) {
-    return res.redirect('/login');
+    return res.redirect('/');
   }
   const lookup = req.cookies["user_id"];
   const templateVars = {
@@ -61,17 +84,24 @@ app.get('/urls/new', (req, res) => {
 });
 
 app.get('/urls/:id', (req, res) => {
+  if (req.cookies.user_id === undefined) {
+    return res.send('You are not logged in.');
+  }
+  const allowedURLs = urlsForUser(req.cookies["user_id"]);
+  if (!allowedURLs.includes(req.params.id)) {
+    return res.send('You do not have access to that shortened URL');
+  }
   const lookup = req.cookies["user_id"];
-  const templateVars = { 
-    id: req.params.id, 
-    longURL: urlDatabase[req.params.id], 
+  const templateVars = {
+    id: req.params.id,
+    longURL: urlDatabase[req.params.id].longURL,
     user: users[lookup],
   };
   res.render('urls_show', templateVars);
 });
 
 app.get('/u/:id', (req, res) => {
-  const longURL = urlDatabase[req.params.id];
+  const longURL = urlDatabase[req.params.id].longURL;
   if (longURL === undefined) {
     return res.send(`${req.params.id} is not in the database...`);
   }
@@ -101,21 +131,32 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/urls', (req, res) => {
-  if (req.cookies.user_id === undefined) {
-    return res.send('You cannot shorten URLs unless you are logged in.\n')
+  if (req.cookies["user_id"] === undefined) {
+    return res.send('You cannot shorten URLs unless you are logged in.\n');
   }
   const newID = randString();
-  urlDatabase[newID] = req.body.longURL;
+  urlDatabase[newID] = {
+    longURL: req.body.longURL,
+    userID: req.cookies["user_id"],
+  };
   res.redirect(`/urls/${newID}`);
 });
 
 app.post('/urls/:id/delete', (req, res) => {
+  const allowed = urlsForUser(req.cookies["user_id"]);
+  if (req.cookies["user_id"] === undefined || !allowed.includes(req.params.id)) {
+    return res.send('You are not permitted to modify this URL.');
+  }
   delete urlDatabase[req.params.id];
   res.redirect('/urls');
 });
 
 app.post('/urls/:id/update', (req, res) => {
-  urlDatabase[req.params.id] = req.body.newURL;
+  const allowed = urlsForUser(req.cookies["user_id"]);
+  if (req.cookies["user_id"] === undefined || !allowed.includes(req.params.id)) {
+    return res.send('You are not permitted to modify this URL.');
+  }
+  urlDatabase[req.params.id].longURL = req.body.newURL;
   res.redirect('/urls');
 });
 
@@ -162,4 +203,4 @@ const randString = function() {
     }
   }
   return result;
-}
+};
