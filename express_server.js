@@ -1,6 +1,7 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const favicon = require('serve-favicon');
+const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = 8080;
 
@@ -14,19 +15,16 @@ app.set('view engine', 'ejs');
  * };
  */
 const urlDatabase = {};
-
-const users = {
-  userRandomID: {
-    id: "userRandomID",
-    email: "user@example.com",
-    password: "purple-monkey-dinosaur",
-  },
-  user2RandomID: {
-    id: "user2RandomID",
-    email: "user2@example.com",
-    password: "dishwasher-funk",
-  },
-};
+/**
+ * users = {
+ *   randomID: {
+ *     id: randomID,
+ *     email: example\@example.com,
+ *     password: hashedPassword,
+ *   },
+ * };
+ */
+const users = {};
 
 // Middleware
 app.use(express.urlencoded({ extended: true }));
@@ -181,9 +179,26 @@ app.post('/urls/:id/update', (req, res) => {
   res.redirect('/urls');
 });
 
+app.post('/register', (req, res) => {
+  if (req.body.email === '' || req.body.password === '') {
+    return res.status(400).send('Values cannot be blank.\n');
+  } else if (getUserByEmail(req.body.email) !== null) {
+    return res.status(403).send('Already registered. Please log in.\n');
+  }
+  const userID = randString();
+  const hashedPassword = bcrypt.hashSync(req.body.password, 10);
+  users[userID] = {};
+  users[userID].id = userID;
+  users[userID].email = req.body.email;
+  users[userID].password = hashedPassword;
+  console.log(users);
+  res.cookie("user_id", userID);
+  res.redirect('/urls');
+});
+
 app.post('/login', (req, res) => {
   const user = getUserByEmail(req.body.email);
-  if (user === null || user.password !== req.body.password) {
+  if (user === null || !bcrypt.compareSync(req.body.password, user.password)) {
     return res.status(403).send('Incorrect email or password.\n');
   }
   res.cookie("user_id", user.id);
@@ -195,19 +210,6 @@ app.post('/logout', (req, res) => {
     return res.status(401).send(`Cannot logout if you're not logged in...\n`);
   }
   res.clearCookie('user_id');
-  res.redirect('/urls');
-});
-
-app.post('/register', (req, res) => {
-  if (req.body.email === '' || req.body.password === '' || getUserByEmail(req.body.email) !== null) {
-    return res.status(400).send('Values cannot be blank.\n');
-  }
-  const userID = randString();
-  users[userID] = {};
-  users[userID].id = userID;
-  users[userID].email = req.body.email;
-  users[userID].password = req.body.password;
-  res.cookie("user_id", userID);
   res.redirect('/urls');
 });
 
